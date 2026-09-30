@@ -6,11 +6,8 @@
     Retrieves Intune configuration policies and their assignments through
     Microsoft Graph.
 
-    The report identifies each policy, assignment target type, target ID,
-    assignment source, and assignment filter information.
-
-    The script is tenant-agnostic and uses the currently authenticated
-    Microsoft Graph session.
+    Group IDs are resolved to Microsoft Entra group display names to make
+    the report easier for administrators to understand.
 
 .PARAMETER OutputPath
     Optional path for exporting the assignment report to CSV.
@@ -22,10 +19,9 @@
     .\Get-IntuneAssignments.ps1 -OutputPath ".\IntuneAssignments.csv"
 
 .NOTES
-    Requires an existing Microsoft Graph connection with appropriate
-    Intune read permissions.
+    Requires an existing Microsoft Graph connection.
 
-    Uses Microsoft Graph beta configuration policy endpoints.
+    Uses Microsoft Graph beta endpoints for Intune configuration policies.
 #>
 
 [CmdletBinding()]
@@ -35,6 +31,29 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+function Get-GroupDisplayName {
+
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$GroupId
+    )
+
+    try {
+
+        $Uri = "https://graph.microsoft.com/v1.0/groups/$GroupId"
+
+        $Group = Invoke-MgGraphRequest `
+            -Method GET `
+            -Uri $Uri
+
+        return $Group.displayName
+    }
+    catch {
+
+        return "Unknown Group ($GroupId)"
+    }
+}
 
 try {
 
@@ -56,6 +75,7 @@ try {
     Write-Host ""
 
     $PolicyUri = "https://graph.microsoft.com/beta/deviceManagement/configurationPolicies"
+
     $Policies = @()
 
     do {
@@ -68,6 +88,8 @@ try {
         $PolicyUri = $Response.'@odata.nextLink'
 
     } while ($PolicyUri)
+
+    $GroupCache = @{}
 
     $Report = foreach ($Policy in $Policies) {
 
@@ -89,15 +111,12 @@ try {
         if ($Assignments.Count -eq 0) {
 
             [PSCustomObject]@{
-                PolicyName       = $Policy.name
-                PolicyId         = $Policy.id
-                Platform         = $Policy.platforms
-                Technology       = $Policy.technologies
-                TargetType       = "Unassigned"
-                TargetId         = $null
-                AssignmentSource = $null
-                FilterType       = $null
-                FilterId         = $null
+                PolicyName     = $Policy.name
+                Platform       = $Policy.platforms
+                AssignmentType = "Unassigned"
+                Target         = "-"
+                FilterType     = "-"
+                FilterId       = "-"
             }
 
             continue
@@ -106,24 +125,88 @@ try {
         foreach ($Assignment in $Assignments) {
 
             $Target = $Assignment.target
+            $ODataType = $Target.'@odata.type'
+
+            $AssignmentType = "Include"
+            $TargetName = "Unknown"
+
+            switch ($ODataType) {
+
+                "#microsoft.graph.groupAssignmentTarget" {
+
+                    $GroupId = $Target.groupId
+
+                    if (-not $GroupCache.ContainsKey($GroupId)) {
+                        $GroupCache[$GroupId] = Get-GroupDisplayName -GroupId $GroupId
+                    }
+
+                    $TargetName = $GroupCache[$GroupId]
+                }
+
+                "#microsoft.graph.exclusionGroupAssignmentTarget" {
+
+                    $AssignmentType = "Exclude"
+
+                    $GroupId = $Target.groupId
+
+                    if (-not $GroupCache.ContainsKey($GroupId)) {
+                        $GroupCache[$GroupId] = Get-GroupDisplayName -GroupId $GroupId
+                    }
+
+                    $TargetName = $GroupCache[$GroupId]
+                }
+
+                "#microsoft.graph.allLicensedUsersAssignmentTarget" {
+
+                    $TargetName = "All Users"
+                }
+
+                "#microsoft.graph.allDevicesAssignmentTarget" {
+
+                    $TargetName = "All Devices"
+                }
+
+                default {
+
+                    $TargetName = $ODataType
+                }
+            }
+
+            $FilterType = $Target.deviceAndAppManagementAssignmentFilterType
+            $FilterId = $Target.deviceAndAppManagementAssignmentFilterId
+
+            if (-not $FilterType -or $FilterType -eq "none") {
+                $FilterType = "-"
+            }
+
+            if (-not $FilterId) {
+                $FilterId = "-"
+            }
 
             [PSCustomObject]@{
-                PolicyName       = $Policy.name
-                PolicyId         = $Policy.id
-                Platform         = $Policy.platforms
-                Technology       = $Policy.technologies
-                TargetType       = $Target.'@odata.type'
-                TargetId         = $Target.groupId
-                AssignmentSource = $Assignment.source
-                FilterType       = $Target.deviceAndAppManagementAssignmentFilterType
-                FilterId         = $Target.deviceAndAppManagementAssignmentFilterId
+                PolicyName     = $Policy.name
+                Platform       = $Policy.platforms
+                AssignmentType = $AssignmentType
+                Target         = $TargetName
+                FilterType     = $FilterType
+                FilterId       = $FilterId
             }
         }
     }
 
+    Write-Host ""
+    Write-Host "Assignment Report" -ForegroundColor Cyan
+    Write-Host ""
+
     $Report |
-        Sort-Object PolicyName, TargetType |
-        Format-Table PolicyName, Platform, TargetType, TargetId, FilterType -AutoSize
+        Sort-Object PolicyName, AssignmentType, Target |
+        Format-Table `
+            PolicyName,
+            Platform,
+            AssignmentType,
+            Target,
+            FilterType `
+            -AutoSize
 
     if ($OutputPath) {
 

@@ -35,11 +35,12 @@ param(
     [string]$TenantId,
 
     [Parameter(Mandatory = $false)]
-    [string[]]$Scopes = @(
-        "DeviceManagementConfiguration.ReadWrite.All",
-        "DeviceManagementManagedDevices.Read.All",
-        "DeviceManagementApps.ReadWrite.All"
-    )
+[string[]]$Scopes = @(
+    "DeviceManagementConfiguration.ReadWrite.All",
+    "DeviceManagementManagedDevices.Read.All",
+    "DeviceManagementApps.ReadWrite.All",
+    "Group.Read.All"
+)
 )
 
 $ErrorActionPreference = "Stop"
