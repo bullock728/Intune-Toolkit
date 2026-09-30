@@ -1,65 +1,304 @@
-﻿# Intune Toolkit
+﻿Intune Toolkit
 
-A reusable collection of PowerShell and Microsoft Graph tools for administering, automating, migrating, and reporting on Microsoft Intune environments.
+A collection of reusable PowerShell and Microsoft Graph tools for Microsoft Intune administration, automation, configuration management, reporting, application deployment, and remediation.
 
-The goal of this repository is to maintain tenant-agnostic tools that can be adapted to different Microsoft 365 and Intune environments.
 
-## Features
 
-- Microsoft Graph authentication
-- Intune configuration backup
-- Policy import and export
-- Configuration drift detection
-- Device compliance reporting
-- Intune reporting
-- Win32 application deployment utilities
-- Proactive remediation scripts
-- General Intune administration utilities
+The goal of this project is to provide tenant-agnostic building blocks that can be adapted across Microsoft Intune environments without embedding organization-specific information, credentials, or configuration.
 
-## Repository Structure
 
-Authentication/     Microsoft Graph authentication utilities
-Backup/             Intune configuration backup tools
-Import-Export/      Policy migration and import/export tools
-Drift-Detection/    Configuration comparison and drift detection
-Compliance/         Device compliance reporting and analysis
-Reporting/          Intune reporting tools
-Win32-Apps/         Win32 application packaging and deployment
-Remediations/       Intune remediation scripts
-Utilities/          Shared PowerShell utilities
-Examples/           Example configurations and usage
-docs/               Documentation and implementation notes
 
-## Requirements
+Features
 
-Depending on the tool:
+Microsoft Graph authentication
 
-- PowerShell 7+
-- Microsoft Graph PowerShell SDK
-- Microsoft Intune licensing
-- Appropriate Microsoft Graph permissions
+Intune configuration backup and export
 
-Individual scripts will document their specific requirements and permissions.
+Configuration policy migration and import
 
-## Security
+Configuration drift detection
 
-This repository is designed to contain reusable, tenant-agnostic tooling.
+Compliance policy export
 
-Do not commit:
+Device compliance reporting
 
-- Client secrets
-- Access tokens
-- Passwords
-- Private keys
-- Certificates or PFX files
-- Production configuration exports containing sensitive information
-- User or device data
-- Organization-specific confidential information
+Intune assignment auditing
 
-Authentication credentials and environment-specific configuration should be supplied at runtime or through an appropriate secure configuration method.
+Win32 application install and uninstall wrappers
 
-## Disclaimer
+Win32 application detection templates
 
-Scripts should be reviewed and tested in a non-production environment before being used against a production Microsoft Intune tenant.
+Intune detection and remediation templates
 
-Use of these tools is at your own risk.
+Repository Structure
+
+Authentication
+
+Microsoft Graph authentication utilities.
+
+
+
+Connect-IntuneGraph.ps1
+
+
+
+Establishes an interactive delegated Microsoft Graph session for Intune administration.
+
+
+
+The script is tenant-agnostic and supports an optional Tenant ID supplied at runtime.
+
+
+
+Backup
+
+Tools for backing up Intune configuration.
+
+
+
+Export-IntuneConfiguration.ps1
+
+
+
+Retrieves Intune configuration policies through Microsoft Graph and exports each policy as JSON.
+
+
+
+Potential uses include:
+
+
+
+Configuration backup
+
+Change tracking
+
+Migration preparation
+
+Configuration comparison
+
+Import-Export
+
+Tools for moving Intune configuration between environments.
+
+
+
+Import-IntuneConfiguration.ps1
+
+
+
+Reads an exported Intune configuration policy, removes environment-generated properties, and prepares the configuration for creation through Microsoft Graph.
+
+
+
+Supports PowerShell -WhatIf for reviewing the operation before making changes.
+
+
+
+Drift-Detection
+
+Tools for detecting changes between Intune configurations.
+
+
+
+Compare-IntuneConfiguration.ps1
+
+
+
+Compares two exported Intune configuration policies while ignoring environment-generated metadata such as IDs and timestamps.
+
+
+
+The tool can be used to compare a known baseline against another configuration snapshot and identify configuration drift.
+
+
+
+Compliance
+
+Tools for working with Intune compliance configuration.
+
+
+
+Export-IntuneCompliancePolicies.ps1
+
+
+
+Retrieves Intune device compliance policies through Microsoft Graph and exports each policy as JSON.
+
+
+
+Reporting
+
+Operational reporting and auditing tools.
+
+
+
+Get-IntuneDeviceComplianceReport.ps1
+
+
+
+Retrieves Intune-managed devices and produces a CSV report containing information such as:
+
+
+
+Device name
+
+User
+
+Operating system
+
+OS version
+
+Compliance state
+
+Device ownership
+
+Management agent
+
+Enrollment date
+
+Last Intune synchronization
+
+Get-IntuneAssignments.ps1
+
+
+
+Audits Intune configuration policy assignments.
+
+
+
+The report identifies configuration policies and their assignment targets, including assignment and filtering information when available.
+
+
+
+Win32-Apps
+
+Reusable components for Microsoft Intune Win32 application deployments.
+
+
+
+Detection-Scripts
+
+Detect-FileVersion.ps1
+
+
+
+Detects whether an application executable exists and verifies that the installed version meets a specified minimum version.
+
+
+
+Detect-Registry.ps1
+
+
+
+Detects application presence using Windows registry keys or values.
+
+
+
+Install-Scripts
+
+Install-Win32App.ps1
+
+
+
+Generic Win32 installation wrapper that:
+
+
+
+Validates the installer exists
+
+Executes the installer with application-specific silent arguments
+
+Waits for completion
+
+Returns the installer exit code
+
+Uninstall-Win32App.ps1
+
+
+
+Generic Win32 uninstall wrapper that performs the same standardized process for application removal.
+
+
+
+Remediations
+
+Reusable detection and remediation templates for Windows configuration management.
+
+
+
+Detect-RegistrySetting.ps1
+
+
+
+Evaluates whether a registry value matches the desired configuration.
+
+
+
+Exit 0 indicates compliance
+
+Exit 1 indicates remediation is required
+
+Remediate-RegistrySetting.ps1
+
+
+
+Creates or updates the required Windows registry value when remediation is necessary.
+
+
+
+Utilities
+
+Shared PowerShell utilities used by other toolkit components.
+
+
+
+Examples
+
+Sanitized examples demonstrating how toolkit components can be used without exposing production tenant information.
+
+
+
+docs
+
+Additional implementation notes, architecture documentation, and usage guidance.
+
+
+
+Toolkit Workflow
+
+A typical configuration-management workflow can look like:
+
+
+
+Authenticate to Microsoft Graph
+
+&#x20;           |
+
+&#x20;           v
+
+Export Intune Configuration
+
+&#x20;           |
+
+&#x20;           v
+
+Store Configuration as JSON
+
+&#x20;           |
+
+&#x20;     +-----+-----+
+
+&#x20;     |           |
+
+&#x20;     v           v
+
+&#x20;  Import       Compare
+
+&#x20;  Policy        Policy
+
+&#x20;     |           |
+
+&#x20;     v           v
+
+&#x20;Migration    Drift Detection
+
